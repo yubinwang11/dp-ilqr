@@ -131,11 +131,78 @@ def two_quads_one_human():
     plt.show()
 
 
+def random_multicar_simulation():
+
+    n_states = 3
+    n_controls = 2
+    n_agents = 2 # 2
+    x_dims = [n_states] * n_agents
+    u_dims = [n_controls] * n_agents
+    n_dims = [2] * n_agents
+
+    n_d = n_dims[0]
+
+    x0, xf = dpilqr.random_setup(
+        n_agents,
+        n_states,
+        is_rotation=False,
+        rel_dist=2.0,
+        var=n_agents / 2,
+        n_d=2,
+        random=True,
+    )
+
+    dpilqr.eyeball_scenario(x0, xf, n_agents, n_states)
+    plt.show()
+
+    dt = 0.05
+    N = 60
+
+    tol = 1e-6
+    ids = [100 + i for i in range(n_agents)]
+
+    model = dpilqr.CarDynamics3D
+    dynamics = dpilqr.MultiDynamicalModel([model(dt, id_) for id_ in ids])
+
+    Q = np.eye(3)
+    R = np.eye(2)
+    Qf = 1e3 * np.eye(n_states)
+    radius = 0.5
+
+    goal_costs = [
+        dpilqr.ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
+        for xf_i, id_, x_dim, u_dim in zip(
+            dpilqr.split_agents_gen(xf, x_dims), ids, x_dims, u_dims
+        )
+    ]
+    prox_cost = dpilqr.ProximityCost(x_dims, radius, n_dims)
+    goal_costs = [
+        dpilqr.ReferenceCost(xf_i, Q.copy(), R.copy(), Qf.copy(), id_)
+        for xf_i, id_ in zip(split_agents(xf.T, x_dims), ids)
+    ]
+    prox_cost = dpilqr.ProximityCost(x_dims, radius, n_dims)
+    game_cost = dpilqr.GameCost(goal_costs, prox_cost)
+
+    problem = dpilqr.ilqrProblem(dynamics, game_cost)
+    solver = dpilqr.ilqrSolver(problem, N)
+
+    X, _, J = solver.solve(x0, tol=tol, t_kill=None)
+
+    plt.clf()
+    plot_solve(X, J, xf.T, x_dims, True, n_d)
+
+    plt.figure()
+    dpilqr.plot_pairwise_distances(X, x_dims, n_dims, radius)
+
+    plt.show()
+
+    dpilqr.make_trajectory_gif(f"{n_agents}-cars.gif", X, xf, x_dims, radius)
+
 def random_multiagent_simulation():
 
     n_states = 4
     n_controls = 2
-    n_agents = 7
+    n_agents = 2 # 2
     x_dims = [n_states] * n_agents
     u_dims = [n_controls] * n_agents
     n_dims = [2] * n_agents
@@ -202,7 +269,7 @@ def random_multiagent_simulation():
 def _3d_integrators():
     n_states = 6
     n_controls = 3
-    n_agents = 5
+    n_agents = 5 #5
     x_dims = [n_states] * n_agents
     u_dims = [n_controls] * n_agents
     n_dims = [3] * n_agents
@@ -256,7 +323,7 @@ def _3d_integrators():
 
     plt.show()
 
-    # dpilqr.make_trajectory_gif(f"{n_agents}-quads.gif", X, xf, x_dims, radius)
+    dpilqr.make_trajectory_gif(f"{n_agents}-quads.gif", X, xf, x_dims, radius)
 
 
 def nquads_mhumans():
@@ -333,12 +400,13 @@ def nquads_mhumans():
 
 def main():
 
-    # single_unicycle()
-    # single_quad6d()
-    # two_quads_one_human()
-    # random_multiagent_simulation()
-    # _3d_integrators()
-    nquads_mhumans()
+    #single_unicycle()
+    #single_quad6d()
+    #two_quads_one_human()
+    #random_multiagent_simulation()
+    random_multicar_simulation()
+    #_3d_integrators()
+    #nquads_mhumans()
 
 if __name__ == "__main__":
     main()
